@@ -1,3 +1,4 @@
+import SwiftUI
 import XCTest
 @testable import Deckloom
 
@@ -51,5 +52,55 @@ final class DeckloomTests: XCTestCase {
             XCTAssertEqual(left.x, -right.x, "neighbors mirror each other")
             XCTAssertEqual(left.y, right.y)
         }
+    }
+
+    func testPileShowsSelectedCardAndUpToTwoAfterIt() {
+        let ids = ["a", "b", "c", "d"]
+        XCTAssertEqual(DeckPile.shown(ids, from: nil), 0..<3)
+        XCTAssertEqual(DeckPile.shown(ids, from: "c"), 2..<4)
+        XCTAssertEqual(DeckPile.shown(ids, from: "d"), 3..<4)
+        XCTAssertEqual(DeckPile.shown([String](), from: nil), 0..<0)
+        XCTAssertNotEqual(DeckPile.rotation(depth: 0), DeckPile.rotation(depth: 1), "the pile looks rotated")
+    }
+
+    func testOpeningPileResolvesSelection() {
+        let ids = ["a", "b", "c"]
+        XCTAssertEqual(DeckPile.openingSelection(nil, in: ids), "a")
+        XCTAssertEqual(DeckPile.openingSelection("gone", in: ids), "a")
+        XCTAssertEqual(DeckPile.openingSelection("b", in: ids), "b")
+        XCTAssertNil(DeckPile.openingSelection(nil, in: [String]()))
+    }
+
+    func testTapZonesGoBackAndForward() {
+        XCTAssertEqual(DeckPaging.leadingShare, 1.0 / 3)
+        XCTAssertEqual(DeckPaging.tap(.leading, current: 2, count: 4), .show(1))
+        XCTAssertEqual(DeckPaging.tap(.leading, current: 0, count: 4), .show(0), "back stops at the first card")
+        XCTAssertEqual(DeckPaging.tap(.trailing, current: 2, count: 4), .show(3))
+        XCTAssertEqual(DeckPaging.tap(.trailing, current: 3, count: 4), .close, "forward from the last card closes")
+    }
+
+    func testProgressFillsSeenAndCurrentCards() {
+        XCTAssertTrue(DeckPaging.isFilled(0, current: 1))
+        XCTAssertTrue(DeckPaging.isFilled(1, current: 1))
+        XCTAssertFalse(DeckPaging.isFilled(2, current: 1))
+    }
+
+    func testSelectionCarriesThroughOpenPageAndClose() {
+        let ids = ["a", "b", "c", "d"]
+        var selection = DeckPile.openingSelection(nil as String?, in: ids)
+        for _ in 0..<2 {
+            guard case .show(let index) = DeckPaging.tap(.trailing, current: DeckSelection.index(of: selection, in: ids), count: ids.count)
+            else { return XCTFail("expected another card") }
+            selection = ids[index]
+        }
+        XCTAssertEqual(selection, "c")
+        XCTAssertEqual(DeckPile.shown(ids, from: selection), 2..<4, "the closed pile starts where the deck stopped")
+    }
+
+    func testReduceMotionCrossFadesInsteadOfFlying() {
+        XCTAssertTrue(DeckMotion.flies(reduceMotion: false))
+        XCTAssertFalse(DeckMotion.flies(reduceMotion: true))
+        XCTAssertEqual(DeckMotion.animation(reduceMotion: true), .easeInOut(duration: 0.2))
+        XCTAssertNotEqual(DeckMotion.animation(reduceMotion: false), DeckMotion.animation(reduceMotion: true))
     }
 }

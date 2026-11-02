@@ -154,7 +154,7 @@ public struct DeckloomOpenedCard<Item: Identifiable, Content: View>: View {
     }
 }
 
-private extension View {
+extension View {
     @ViewBuilder
     func deckloomMatched<ID: Hashable>(id: ID, in namespace: Namespace.ID?) -> some View {
         if let namespace {
@@ -166,7 +166,7 @@ private extension View {
 }
 
 /// A sideways swipe across the deck. A vertical drag that starts on a card still scrolls its container.
-private struct DeckSwipe: ViewModifier {
+struct DeckSwipe: ViewModifier {
     let changed: (CGFloat) -> Void
     /// Receives the predicted end translation.
     let ended: (CGFloat) -> Void
