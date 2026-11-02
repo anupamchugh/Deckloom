@@ -26,8 +26,10 @@ ScrollView {
 
 Each item must have a stable, unique `Identifiable.id`. The caller provides the card view, a bounded frame, and owns the selection, fan and opened state. A nil or missing selection displays the first card; a swipe or a tap on a neighbor writes its ID back. A tap on the front card sets `opened`; `DeckloomOpenedCard` grows it out of the deck with `matchedGeometryEffect` and closes on a tap or a downward swipe. Put the opened card outside any scroll view so it can fill the screen. Leave out `opened` to turn opening off.
 
+A sideways drag changes cards; a vertical drag that starts on a card still scrolls the container. On iOS 18 and later this uses a UIKit pan that declines to start on vertical motion, because a SwiftUI drag inside a scroll view blocks its scrolling; iOS 17, macOS and visionOS use a horizontal-only simultaneous `DragGesture`.
+
 Up to three neighbors on either side are displayed. VoiceOver users adjust the stack to change selection and use the Open action; the opened card is modal and closes with the escape gesture. Reduced Motion disables the selection, fan and open animations.
 
 Drag-to-reorder is not included: iOS 27's `reorderable()` needs an iOS 27 availability branch, and its drag competes with the swipe that changes cards in a stacked deck.
 
-Run `swift test` to check snapping, selection fallback, tap behavior and fan placement.
+Run `swift test` to check snapping, drag direction, selection fallback, tap behavior and fan placement. Verified in Breakline on an iPhone 17 Pro simulator (iOS 27.2); not yet checked with VoiceOver or on a physical device.

@@ -8,7 +8,7 @@ public struct Deckloom<Item: Identifiable, Card: View>: View {
     @Binding private var opened: Item.ID?
     private let namespace: Namespace.ID?
     private let card: (Item) -> Card
-    @GestureState private var drag: CGFloat = 0
+    @State private var drag: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// - Parameters:
@@ -57,14 +57,15 @@ public struct Deckloom<Item: Identifiable, Card: View>: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 12)
-                .updating($drag) { value, state, _ in state = value.translation.width }
-                .onEnded { value in
+            .modifier(DeckSwipe(changed: { drag = $0 }, ended: { predicted in
+                withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) {
+                    drag = 0
                     guard !items.isEmpty else { return }
                     select(DeckSelection.target(current: selectedIndex, count: items.count,
-                                                predictedTranslation: value.predictedEndTranslation.width,
+                                                predictedTranslation: predicted,
                                                 threshold: max(50, width * 0.3)))
-                })
+                }
+            }))
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Card stack")
             .accessibilityValue(items.isEmpty ? "Empty" : "Card \(selectedIndex + 1) of \(items.count)")
@@ -164,6 +165,76 @@ private extension View {
     }
 }
 
+/// A sideways swipe across the deck. A vertical drag that starts on a card still scrolls its container.
+private struct DeckSwipe: ViewModifier {
+    let changed: (CGFloat) -> Void
+    /// Receives the predicted end translation.
+    let ended: (CGFloat) -> Void
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        if #available(iOS 18, *) {
+            // A SwiftUI drag inside a scroll view blocks its scrolling; this pan declines to start on vertical motion.
+            content.gesture(HorizontalPan(changed: changed, ended: ended))
+        } else {
+            content.simultaneousGesture(drag)
+        }
+        #else
+        content.simultaneousGesture(drag)
+        #endif
+    }
+
+    private var drag: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onChanged { value in
+                if DeckSelection.isHorizontal(value.translation) { changed(value.translation.width) }
+            }
+            .onEnded { value in
+                changed(0)
+                if DeckSelection.isHorizontal(value.translation) { ended(value.predictedEndTranslation.width) }
+            }
+    }
+}
+
+#if os(iOS)
+@available(iOS 18, *)
+private struct HorizontalPan: UIGestureRecognizerRepresentable {
+    let changed: (CGFloat) -> Void
+    let ended: (CGFloat) -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let pan = UIPanGestureRecognizer()
+        pan.delegate = context.coordinator
+        return pan
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        let translation = recognizer.translation(in: recognizer.view).x
+        switch recognizer.state {
+        case .changed:
+            changed(translation)
+        case .ended:
+            // About a quarter second of the release velocity, like DragGesture's prediction.
+            ended(translation + recognizer.velocity(in: recognizer.view).x * 0.25)
+        case .cancelled, .failed:
+            changed(0)
+        default:
+            break
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = recognizer as? UIPanGestureRecognizer else { return true }
+            let velocity = pan.velocity(in: pan.view)
+            return DeckSelection.isHorizontal(CGSize(width: velocity.x, height: velocity.y))
+        }
+    }
+}
+#endif
+
 /// Where one card sits relative to the selected card.
 struct DeckPlacement: Equatable {
     let rotation: Double
@@ -190,6 +261,11 @@ enum DeckSelection {
     /// Tapping the front card opens it; tapping a neighbor brings it to the front.
     static func tap(_ index: Int, selected: Int) -> Tap {
         index == selected ? .open : .select
+    }
+
+    /// A drag changes cards only when it moves more sideways than up or down.
+    static func isHorizontal(_ translation: CGSize) -> Bool {
+        abs(translation.width) > abs(translation.height)
     }
 
     static func target(current: Int, count: Int, predictedTranslation: CGFloat, threshold: CGFloat) -> Int {

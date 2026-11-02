@@ -10,6 +10,12 @@ final class DeckloomTests: XCTestCase {
         XCTAssertEqual(DeckSelection.target(current: 1, count: 4, predictedTranslation: 10, threshold: 50), 1)
     }
 
+    func testOnlySidewaysDragsChangeCards() {
+        XCTAssertTrue(DeckSelection.isHorizontal(CGSize(width: -120, height: 30)))
+        XCTAssertFalse(DeckSelection.isHorizontal(CGSize(width: 20, height: -200)), "a scroll that starts on a card")
+        XCTAssertFalse(DeckSelection.isHorizontal(CGSize(width: 40, height: 40)))
+    }
+
     func testSelectionFallsBackToFirstCard() {
         let ids = ["a", "b", "c"]
         XCTAssertEqual(DeckSelection.index(of: "c", in: ids), 2)
