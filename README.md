@@ -112,3 +112,7 @@ Drag-to-reorder: iOS 27's `reorderable()` would need an iOS 27 availability bran
 ## Platforms and checks
 
 iOS 17+, macOS 14+, visionOS 1+ (haptics need visionOS 26). Run `swift test` to check snapping, drag direction, selection fallback, tap behavior, fan placement, which cards the pile shows, the selection when opening, the tap zones, the progress bars, the selection carrying through opening and closing, and the Reduce Motion path. The stack, fan and open modes were checked in Breakline on an iPhone 17 Pro simulator (iOS 27.2). The pile has only been compiled for macOS, iOS and visionOS; it has not been run in an app, with VoiceOver, or on a device.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
